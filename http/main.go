@@ -9,11 +9,13 @@ import (
     "os/signal"
     "syscall"
     "time"
+	"regexp"
 
     "github.com/elazarl/goproxy"
     "github.com/go-i2p/onramp"
     "github.com/sirupsen/logrus"
     "golang.org/x/time/rate"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Config struct {
@@ -111,7 +113,12 @@ func (p *Proxy) setupMiddleware() {
     })
 
     // Block common sensitive endpoints
-    p.proxy.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile(`^(localhost|127\.0\.0\.1)`))).Reject()
+    p.proxy.OnRequest(goproxy.ReqHostMatches(regexp.MustCompile(`^(localhost|127\.0\.0\.1)`))).DoFunc(
+        func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+            return nil, goproxy.NewResponse(req, 
+                goproxy.ContentTypeText, http.StatusForbidden, 
+                "Access to local addresses is forbidden")
+        })
 }
 
 func (p *Proxy) Run(ctx context.Context) error {
